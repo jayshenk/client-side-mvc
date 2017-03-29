@@ -1,37 +1,74 @@
-var productTemplate = Handlebars.compile($("#product").html());
-var formTemplate = Handlebars.compile($("#form").html());
-
 var ProductModel = Backbone.Model.extend({
-  render: function() {
-    $("article").html(productTemplate(this.toJSON()));
-  },
-  update: function() {
+  setDatetime: function() {
     var date = new Date(this.get("date"));
+    var datetime = formatDatetime(date);
 
-    this.set({
-      datetime: date.toISOString(),
-      date_formatted: date.toString()
-    });
-    this.render();
+    this.set("datetime", datetime);
+  },
+  setDateFormatted: function() {
+    var date = new Date(this.get("date"));
+    var date_formatted = formatDate(date);
+
+    this.set("date_formatted", date_formatted);
   },
   initialize: function() {
-    this.update();
-    this.on("change", this.update);
+    this.setDatetime();
+    this.setDateFormatted();
   }
 });
 
 var product = new ProductModel(product_json);
 
-$("article").html(productTemplate(product.toJSON()));
-$("fieldset").html(formTemplate(product.toJSON()));
+var templates = {};
+$("[type='text/x-handlebars']").each(function() {
+  var $template = $(this);
+  templates[$template.attr("id")] = Handlebars.compile($template.html());
+});
+
+renderProduct();
+renderForm();
 
 $("form").on("submit", function(e) {
   e.preventDefault();
-  var $this = $(this);
+  var inputs = $(this).serializeArray();
+  var date = new Date();
+  var attrs = {};
 
-  product.set({
-    name: $this.find("[name=name]").val(),
-    description: $this.find("[name=description]").val(),
-    date: (new Date()).valueOf(),
+  inputs.forEach(function(input) {
+    attrs[input.name] = input.value;
   });
+
+  attrs.datetime = formatDatetime(date);
+  attrs.date_formatted = formatDate(date);
+  attrs.date = date.valueOf();
+  product.set(attrs);
+  renderProduct();
 });
+
+function formatDatetime(date) {
+  var datetime = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+  datetime += "T" + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+  return datetime;
+}
+
+function formatDate(date) {
+  var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var suffix_overrides = ["st", "nd", "rd"];
+  var date_suffix = "th";
+  var date_formatted;
+
+  if (date.getDate() <= suffix_overrides.length) {
+    date_suffix = suffix_overrides[date.getDate() - 1];
+  }
+  date_formatted = months[date.getMonth()] + " " + date.getDate() + date_suffix + ", " + date.getFullYear();
+  date_formatted += " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+  return date_formatted;
+}
+
+function renderProduct() {
+  $("article").html(templates.product(product.toJSON()));
+}
+
+function renderForm() {
+  $("fieldset").html(templates.form(product.toJSON()));
+}
